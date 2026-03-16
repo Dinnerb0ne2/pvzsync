@@ -13,6 +13,10 @@ struct Config {
     std::string save_path = "C:\\Users\\你的用户名\\AppData\\Roaming\\PopCap Games\\PlantsVsZombies\\userdata";
     std::string local_backup_path = "C:\\PVZBackup\\Local";
     std::string remote_backup_path = "C:\\PVZBackup\\Remote";
+    
+    // 远程控制配置
+    std::string resolution = "720p";      // 分辨率：540p/720p/1080p
+    std::string framerate = "25fps";      // 帧率：25fps/30fps/45fps/60fps
 };
 
 // PVZ运行状态

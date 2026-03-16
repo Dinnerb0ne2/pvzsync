@@ -1,4 +1,5 @@
 #include <core.h>
+#include <ui.h>
 
 #include <shlwapi.h>
 #include <direct.h>
@@ -37,6 +38,13 @@ void ReadConfig(const std::string& path) {
 
     GetPrivateProfileStringA("General", "RemoteBackupPath", g_config.remote_backup_path.c_str(), buf, 512, path.c_str());
     g_config.remote_backup_path = buf;
+
+    // 远程控制配置
+    GetPrivateProfileStringA("General", "Resolution", "720p", buf, 512, path.c_str());
+    g_config.resolution = buf;
+
+    GetPrivateProfileStringA("General", "Framerate", "25fps", buf, 512, path.c_str());
+    g_config.framerate = buf;
 }
 
 // 保存INI配置
@@ -49,6 +57,10 @@ void SaveConfig(const std::string& path) {
     WritePrivateProfileStringA("General", "SaveFilePath", g_config.save_path.c_str(), path.c_str());
     WritePrivateProfileStringA("General", "LocalBackupPath", g_config.local_backup_path.c_str(), path.c_str());
     WritePrivateProfileStringA("General", "RemoteBackupPath", g_config.remote_backup_path.c_str(), path.c_str());
+    
+    // 远程控制配置
+    WritePrivateProfileStringA("General", "Resolution", g_config.resolution.c_str(), path.c_str());
+    WritePrivateProfileStringA("General", "Framerate", g_config.framerate.c_str(), path.c_str());
 }
 
 // 检查PVZ是否运行
@@ -83,8 +95,10 @@ bool StartPVZ(const std::string& pvz_path) {
         CloseHandle(pi.hProcess);
         CloseHandle(pi.hThread);
         g_pvz_state.is_running = true;
+        AddMessage("PVZ启动成功", MessageType::Success);
     } else {
         std::cerr << "启动PVZ失败，错误码: " << GetLastError() << std::endl;
+        AddMessage("PVZ启动失败，错误码: " + std::to_string(GetLastError()), MessageType::Error);
     }
 
     return ret;
@@ -159,8 +173,10 @@ bool BackupSaveDir(const std::string& src_dir, const std::string& base_backup_di
     bool ret = CopyDirectory(src_dir, dest_dir);
     if (ret) {
         std::cout << "备份成功: " << dest_dir << std::endl;
+        AddMessage("备份存档成功", MessageType::Success);
     } else {
         std::cerr << "备份失败" << std::endl;
+        AddMessage("备份存档失败", MessageType::Error);
     }
 
     return ret;

@@ -1,5 +1,7 @@
 #include <network.h>
 #include <core.h>
+#include <remote.h>
+#include <ui.h>
 
 #include <iostream>
 #include <thread>
@@ -82,6 +84,7 @@ bool StartServer(int port) {
     g_network_state.connected = true;
 
     std::cout << "客户端连接: " << inet_ntoa(client_addr.sin_addr) << std::endl;
+    AddMessage("客户端已连接: " + std::string(inet_ntoa(client_addr.sin_addr)), MessageType::Success);
 
     // 启动接收线程
     std::thread recv_thread(NetworkRecvThreadFunc);
@@ -117,6 +120,7 @@ bool ConnectToServer(const std::string& ip, int port) {
 
     g_network_state.connected = true;
     std::cout << "已连接到服务端: " << ip << ":" << port << std::endl;
+    AddMessage("已连接到服务端: " + ip + ":" + std::to_string(port), MessageType::Success);
 
     // 启动接收线程
     std::thread recv_thread(NetworkRecvThreadFunc);
@@ -129,6 +133,12 @@ bool ConnectToServer(const std::string& ip, int port) {
 void NetworkRecvThreadFunc() {
     char buf[4096] = {0};
     while (g_network_state.connected) {
+        // 如果远程控制正在运行，跳过数据处理（由RemoteDisplayThreadFunc处理）
+        if (g_remote_state.streaming) {
+            Sleep(10);
+            continue;
+        }
+
         int recv_len = recv(g_network_state.sock, buf, sizeof(buf)-1, 0);
         
         if (recv_len <= 0) {

@@ -37,6 +37,7 @@ set(SOURCES
     ${PROJECT_SOURCE_DIR}/src/core.cpp
     ${PROJECT_SOURCE_DIR}/src/network.cpp
     ${PROJECT_SOURCE_DIR}/src/ui.cpp
+    ${PROJECT_SOURCE_DIR}/src/remote.cpp
     ${IMGUI_SOURCES}
 )
 
@@ -50,6 +51,7 @@ target_link_libraries(pvz_tool PRIVATE
     kernel32
     shlwapi
     dwmapi
+    gdiplus
     pthread
 )
 

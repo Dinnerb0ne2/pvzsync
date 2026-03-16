@@ -31,6 +31,9 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
         return 1;
     }
 
+    // 添加启动消息（必须在窗口创建之后，因为AddMessage依赖ImGui）
+    AddMessage("程序启动成功，配置已加载: " + g_config.resolution + " @ " + g_config.framerate, MessageType::Info);
+
     // 消息循环
     MSG msg;
     while (g_window_state.running) {
