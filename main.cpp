@@ -14,8 +14,10 @@
  * @return 消息循环退出时的返回值
  */
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow) {
-    // 配置文件路径
-    std::string config_path = "config.ini";
+    // 获取当前工作目录并构建配置文件路径
+    char current_dir[MAX_PATH];
+    GetCurrentDirectoryA(MAX_PATH, current_dir);
+    std::string config_path = std::string(current_dir) + "\\config.ini";
 
     // 检查配置文件是否存在
     if (GetFileAttributesA(config_path.c_str()) != INVALID_FILE_ATTRIBUTES) {

@@ -303,7 +303,25 @@ void RenderGUI() {
     // 设置窗口
     ImGui::SetNextWindowPos(ImVec2(10, 10));
     ImGui::SetNextWindowSize(ImVec2(1000, 920));
-    ImGui::Begin("PVZ 内网联动工具", nullptr, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove);
+    
+    // 获取当前工作目录
+    char current_dir[MAX_PATH];
+    GetCurrentDirectoryA(MAX_PATH, current_dir);
+    std::string config_path = std::string(current_dir) + "\\config.ini";
+    
+    // 创建窗口并检查是否被关闭
+    bool window_open = true;
+    if (!ImGui::Begin("PVZ 内网联动工具", &window_open, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove)) {
+        ImGui::End();
+        return;
+    }
+    
+    // 如果窗口被关闭，退出程序
+    if (!window_open) {
+        g_window_state.running = false;
+        ImGui::End();
+        return;
+    }
 
     // 基础配置
     if (ImGui::CollapsingHeader("基础配置 [General]", ImGuiTreeNodeFlags_DefaultOpen)) {
@@ -488,13 +506,13 @@ void RenderGUI() {
     // 操作按钮
     ImGui::Spacing();
     if (ImGui::Button("保存配置到INI", ImVec2(120, 30))) {
-        SaveConfig("config.ini");
-        AddMessage("配置已保存到config.ini", MessageType::Success);
+        SaveConfig(config_path);
+        AddMessage("配置已保存到: " + config_path, MessageType::Success);
     }
     ImGui::SameLine();
     if (ImGui::Button("从INI加载配置", ImVec2(120, 30))) {
-        ReadConfig("config.ini");
-        AddMessage("配置已从config.ini加载", MessageType::Success);
+        ReadConfig(config_path);
+        AddMessage("配置已从: " + config_path + " 加载", MessageType::Success);
     }
 
     ImGui::SameLine();

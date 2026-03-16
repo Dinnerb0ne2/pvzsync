@@ -67,6 +67,9 @@ void SaveConfig(const std::string& path) {
     WritePrivateProfileStringA("General", "Resolution", g_config.resolution.c_str(), path.c_str());
     WritePrivateProfileStringA("General", "Framerate", g_config.framerate.c_str(), path.c_str());
     WritePrivateProfileStringA("General", "TargetProcess", g_config.target_process.c_str(), path.c_str());
+    
+    // 刷新文件缓存
+    WritePrivateProfileStringA(NULL, NULL, NULL, path.c_str());
 }
 
 // 检查PVZ是否运行
