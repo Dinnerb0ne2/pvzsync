@@ -426,10 +426,12 @@ void RenderGUI() {
     ImGui::Spacing();
     if (ImGui::Button("保存配置到INI", ImVec2(120, 30))) {
         SaveConfig("config.ini");
+        AddMessage("配置已保存到config.ini", MessageType::Success);
     }
     ImGui::SameLine();
     if (ImGui::Button("从INI加载配置", ImVec2(120, 30))) {
         ReadConfig("config.ini");
+        AddMessage("配置已从config.ini加载", MessageType::Success);
     }
 
     ImGui::SameLine();
