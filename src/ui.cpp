@@ -14,6 +14,22 @@ extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg
 // 全局窗口状态
 WindowState g_window_state;
 
+// DPI感知函数声明
+typedef HRESULT(WINAPI* SetProcessDpiAwarenessProc)(int PROCESS_DPI_AWARENESS);
+
+// 启用DPI感知
+void EnableDPIAwareness() {
+    HMODULE shcore = LoadLibraryA("shcore.dll");
+    if (shcore) {
+        SetProcessDpiAwarenessProc set_process_dpi_awareness = 
+            (SetProcessDpiAwarenessProc)GetProcAddress(shcore, "SetProcessDpiAwareness");
+        if (set_process_dpi_awareness) {
+            set_process_dpi_awareness(2); // PROCESS_PER_MONITOR_DPI_AWARE
+        }
+        FreeLibrary(shcore);
+    }
+}
+
 // 窗口过程函数
 LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
     if (ImGui_ImplWin32_WndProcHandler(hWnd, msg, wParam, lParam)) {
@@ -35,24 +51,26 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
 
 // 创建Win32+OpenGL窗口
 bool CreateWin32OpenGLWindow() {
-    // 注册窗口类
-    WNDCLASSEXA wc = {0};
-    wc.cbSize        = sizeof(WNDCLASSEXA);
+    // 启用DPI感知，解决UI模糊问题
+    EnableDPIAwareness();
+
+    // 注册窗口类（使用Unicode版本）
+    WNDCLASSW wc = {0};
     wc.style         = CS_CLASSDC;
     wc.lpfnWndProc   = WndProc;
     wc.hInstance     = GetModuleHandle(NULL);
-    wc.lpszClassName = "PVZSyncClass";
+    wc.lpszClassName = L"PVZSyncClass";
 
-    if (!RegisterClassExA(&wc)) {
+    if (!RegisterClassW(&wc)) {
         std::cerr << "窗口类注册失败: " << GetLastError() << std::endl;
         return false;
     }
 
-    // 创建窗口
-    g_window_state.hwnd = CreateWindowExA(
+    // 创建窗口（使用Unicode版本解决标题中文乱码）
+    g_window_state.hwnd = CreateWindowExW(
         0,
         wc.lpszClassName,
-        "PVZ内网联动工具",
+        L"PVZ内网联动工具",
         WS_OVERLAPPEDWINDOW,
         100, 100, 900, 700,
         NULL, NULL, wc.hInstance, NULL
@@ -89,26 +107,28 @@ bool CreateWin32OpenGLWindow() {
     ImGui::CreateContext();
     ImGuiIO& io = ImGui::GetIO();
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
+    io.FontGlobalScale = 1.0f;  // 字体全局缩放
 
     ImGui::StyleColorsDark();
     ImGui_ImplWin32_Init(g_window_state.hwnd);
     ImGui_ImplOpenGL3_Init("#version 130");
 
-    // 加载中文字体（微软雅黑）
+    // 加载中文字体（微软雅黑），增加Oversample参数提高清晰度
     const char* font_path = "C:\\Windows\\Fonts\\msyh.ttf";
     ImFontConfig font_config;
-    font_config.OversampleH = 2;
-    font_config.OversampleV = 2;
+    font_config.OversampleH = 3;      // 提高水平过采样
+    font_config.OversampleV = 3;      // 提高垂直过采样
     font_config.PixelSnapH = false;
+    font_config.RasterizerMultiply = 1.5f;  // 增加栅格化倍数
     
     // 检查字体文件是否存在
     if (GetFileAttributesA(font_path) != INVALID_FILE_ATTRIBUTES) {
-        io.Fonts->AddFontFromFileTTF(font_path, 16.0f, &font_config, io.Fonts->GetGlyphRangesChineseFull());
+        io.Fonts->AddFontFromFileTTF(font_path, 18.0f, &font_config, io.Fonts->GetGlyphRangesChineseFull());
     } else {
         // 如果微软雅黑不存在，尝试使用宋体
         const char* font_path_fallback = "C:\\Windows\\Fonts\\simsun.ttc";
         if (GetFileAttributesA(font_path_fallback) != INVALID_FILE_ATTRIBUTES) {
-            io.Fonts->AddFontFromFileTTF(font_path_fallback, 16.0f, &font_config, io.Fonts->GetGlyphRangesChineseFull());
+            io.Fonts->AddFontFromFileTTF(font_path_fallback, 18.0f, &font_config, io.Fonts->GetGlyphRangesChineseFull());
         }
     }
 
@@ -129,7 +149,7 @@ void DestroyWin32OpenGLWindow() {
 
     // 销毁窗口
     DestroyWindow(g_window_state.hwnd);
-    UnregisterClassA("PVZSyncClass", GetModuleHandle(NULL));
+    UnregisterClassW(L"PVZSyncClass", GetModuleHandle(NULL));
 }
 
 // 更新GUI状态
