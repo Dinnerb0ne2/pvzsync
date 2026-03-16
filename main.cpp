@@ -14,9 +14,17 @@
  * @return 消息循环退出时的返回值
  */
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow) {
-    // 加载配置文件
+    // 配置文件路径
     std::string config_path = "config.ini";
-    ReadConfig(config_path);
+
+    // 检查配置文件是否存在
+    if (GetFileAttributesA(config_path.c_str()) != INVALID_FILE_ATTRIBUTES) {
+        // 配置文件存在，加载配置
+        ReadConfig(config_path);
+    } else {
+        // 配置文件不存在，创建默认配置并保存
+        SaveConfig(config_path);
+    }
 
     // 创建Win32+OpenGL窗口
     if (!CreateWin32OpenGLWindow()) {
