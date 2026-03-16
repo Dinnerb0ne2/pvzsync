@@ -225,24 +225,25 @@ bool CloseProcessByName(const std::string& process_name) {
     return false;
 }
 
+// 退出标志
+bool g_should_exit = false;  // 退出标志
+
 // 关闭自己和目标进程
 bool CloseSelfAndTarget() {
-    // 关闭目标进程
+    // 先关闭目标进程
     bool closed = false;
     if (!g_config.target_process.empty()) {
         closed = CloseProcessByName(g_config.target_process);
-        if (closed) {
-            AddMessage("已关闭目标进程: " + g_config.target_process, MessageType::Success);
-        }
     }
 
-    // 关闭自己
-    CloseApp();
+    // 设置退出标志
+    g_should_exit = true;
+    
     return closed;
 }
 
 // 关闭应用程序
 void CloseApp() {
-    // 发送关闭消息
-    PostQuitMessage(0);
+    // 设置退出标志
+    g_should_exit = true;
 }

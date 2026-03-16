@@ -28,6 +28,7 @@ struct PVZState {
 // 全局变量声明（避免重复定义）
 extern Config g_config;
 extern PVZState g_pvz_state;
+extern bool g_should_exit;
 
 // 配置读写
 void ReadConfig(const std::string& path);

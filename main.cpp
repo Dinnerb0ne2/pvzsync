@@ -51,6 +51,12 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
         // 渲染GUI
         RenderGUI();
 
+        // 检查是否需要退出
+        if (g_should_exit) {
+            g_window_state.running = false;
+            break;
+        }
+
         // 控制帧率（约60FPS）
         Sleep(16);
     }

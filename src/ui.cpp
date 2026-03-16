@@ -444,13 +444,11 @@ void RenderGUI() {
 
         ImGui::Text("一键关闭功能:");
         if (ImGui::Button("关闭自己+PVZ", ImVec2(120, 30))) {
-            AddMessage("正在关闭本机程序和PVZ...", MessageType::Warning);
             CloseSelfAndTarget();
         }
 
         ImGui::SameLine();
         if (ImGui::Button("关闭双方", ImVec2(100, 30))) {
-            AddMessage("正在关闭双方所有程序...", MessageType::Warning);
             CloseSelfAndTarget();
             if (g_network_state.connected) {
                 SendCommand("CLOSE_BOTH");
@@ -460,8 +458,8 @@ void RenderGUI() {
         ImGui::SameLine();
         if (ImGui::Button("关闭对方", ImVec2(100, 30))) {
             if (g_network_state.connected) {
-                AddMessage("正在关闭对方程序...", MessageType::Warning);
                 SendCommand("CLOSE_SELF");
+                AddMessage("已发送关闭指令到对方", MessageType::Warning);
             } else {
                 AddMessage("未连接对方，无法关闭", MessageType::Error);
             }
