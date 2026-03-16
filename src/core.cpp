@@ -4,6 +4,8 @@
 #include <shlwapi.h>
 #include <direct.h>
 #include <iostream>
+#include <tlhelp32.h>
+#include <algorithm>
 
 // 全局变量定义
 Config g_config;
@@ -184,4 +186,64 @@ bool BackupSaveDir(const std::string& src_dir, const std::string& base_backup_di
     }
 
     return ret;
+}
+
+// 关闭指定进程
+bool CloseProcessByName(const std::string& process_name) {
+    // 创建进程快照
+    HANDLE hSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+    if (hSnapshot == INVALID_HANDLE_VALUE) {
+        return false;
+    }
+
+    PROCESSENTRY32 pe32;
+    pe32.dwSize = sizeof(PROCESSENTRY32);
+
+    // 遍历进程
+    if (Process32First(hSnapshot, &pe32)) {
+        do {
+            // 比较进程名（不区分大小写）
+            std::string current_name = pe32.szExeFile;
+            std::transform(current_name.begin(), current_name.end(), current_name.begin(), ::tolower);
+            std::string target_name = process_name;
+            std::transform(target_name.begin(), target_name.end(), target_name.begin(), ::tolower);
+
+            if (current_name == target_name) {
+                // 打开进程
+                HANDLE hProcess = OpenProcess(PROCESS_TERMINATE, FALSE, pe32.th32ProcessID);
+                if (hProcess) {
+                    // 终止进程
+                    TerminateProcess(hProcess, 0);
+                    CloseHandle(hProcess);
+                    CloseHandle(hSnapshot);
+                    return true;
+                }
+            }
+        } while (Process32Next(hSnapshot, &pe32));
+    }
+
+    CloseHandle(hSnapshot);
+    return false;
+}
+
+// 关闭自己和目标进程
+bool CloseSelfAndTarget() {
+    // 关闭目标进程
+    bool closed = false;
+    if (!g_config.target_process.empty()) {
+        closed = CloseProcessByName(g_config.target_process);
+        if (closed) {
+            AddMessage("已关闭目标进程: " + g_config.target_process, MessageType::Success);
+        }
+    }
+
+    // 关闭自己
+    CloseApp();
+    return closed;
+}
+
+// 关闭应用程序
+void CloseApp() {
+    // 发送关闭消息
+    PostQuitMessage(0);
 }

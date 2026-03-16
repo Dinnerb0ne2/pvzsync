@@ -323,6 +323,53 @@ void RenderGUI() {
                 g_remote_state.streaming = false;
             }
         }
+
+        ImGui::Spacing();
+        if (ImGui::Button("关联到exe进程", ImVec2(120, 30))) {
+            if (!g_config.target_process.empty()) {
+                if (CloseProcessByName(g_config.target_process)) {
+                    AddMessage("已关闭目标进程: " + g_config.target_process, MessageType::Success);
+                    Sleep(500);
+                    StartPVZ(g_config.pvz_path);
+                    AddMessage("已重新启动目标进程", MessageType::Success);
+                } else {
+                    AddMessage("未找到目标进程，正在启动...", MessageType::Info);
+                    StartPVZ(g_config.pvz_path);
+                }
+            }
+        }
+
+        ImGui::SameLine();
+        if (ImGui::Button("手动备份", ImVec2(100, 30))) {
+            BackupSaveDir(g_config.save_path, g_config.local_backup_path);
+            if (g_network_state.connected) {
+                SendCommand("BACKUP_REMOTE");
+            }
+        }
+
+        ImGui::Spacing();
+        ImGui::Separator();
+        ImGui::Spacing();
+
+        ImGui::Text("一键关闭功能:");
+        if (ImGui::Button("关闭自己+PVZ", ImVec2(120, 30))) {
+            CloseSelfAndTarget();
+        }
+
+        ImGui::SameLine();
+        if (ImGui::Button("关闭双方", ImVec2(100, 30))) {
+            CloseSelfAndTarget();
+            if (g_network_state.connected) {
+                SendCommand("CLOSE_BOTH");
+            }
+        }
+
+        ImGui::SameLine();
+        if (ImGui::Button("关闭对方", ImVec2(100, 30))) {
+            if (g_network_state.connected) {
+                SendCommand("CLOSE_SELF");
+            }
+        }
         
         // 显示画面（客户端）
         if (g_remote_state.is_client && g_remote_texture) {

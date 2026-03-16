@@ -160,6 +160,16 @@ void NetworkRecvThreadFunc() {
             BackupSaveDir(g_config.save_path, g_config.local_backup_path);
         } else if (cmd == "BACKUP_REMOTE") {
             BackupSaveDir(g_config.save_path, g_config.remote_backup_path);
+        } else if (cmd == "CLOSE_SELF") {
+            CloseApp();
+        } else if (cmd == "CLOSE_TARGET") {
+            if (!g_config.target_process.empty()) {
+                if (CloseProcessByName(g_config.target_process)) {
+                    AddMessage("远程指令关闭目标进程: " + g_config.target_process, MessageType::Success);
+                }
+            }
+        } else if (cmd == "CLOSE_BOTH") {
+            CloseSelfAndTarget();
         }
     }
 }

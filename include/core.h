@@ -41,3 +41,8 @@ bool StartPVZ(const std::string& pvz_path);
 bool CopyDirectory(const std::string& src_dir, const std::string& dest_dir);
 time_t GetLatestFileTimeInDir(const std::string& dir_path);
 bool BackupSaveDir(const std::string& src_dir, const std::string& base_backup_dir);
+
+// 进程控制
+bool CloseProcessByName(const std::string& process_name);
+bool CloseSelfAndTarget();
+void CloseApp();
