@@ -169,6 +169,7 @@ void NetworkRecvThreadFunc() {
                 }
             }
         } else if (cmd == "CLOSE_BOTH") {
+            // 关闭自己和目标进程
             CloseSelfAndTarget();
         }
     }
