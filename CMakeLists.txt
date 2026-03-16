@@ -52,6 +52,7 @@ target_link_libraries(pvz_tool PRIVATE
     shlwapi
     dwmapi
     gdiplus
+    psapi
     pthread
 )
 

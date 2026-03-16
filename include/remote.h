@@ -85,7 +85,7 @@ void RemoteCaptureThreadFunc();   // 服务端：抓屏并传输
 void RemoteDisplayThreadFunc();   // 客户端：接收并显示画面
 
 // 工具函数
-std::string FindPVZWindow();      // 查找PVZ窗口句柄
+HWND FindWindowByProcessName(const std::string& process_name);  // 根据进程名查找窗口
 bool ParseResolution(const std::string& res, int* width, int* height);  // 解析分辨率
 int ParseFramerate(const std::string& fps);  // 解析帧率
 void ApplyRemoteConfig();         // 应用远程控制配置

@@ -45,6 +45,9 @@ void ReadConfig(const std::string& path) {
 
     GetPrivateProfileStringA("General", "Framerate", "25fps", buf, 512, path.c_str());
     g_config.framerate = buf;
+
+    GetPrivateProfileStringA("General", "TargetProcess", "pvzHE.exe", buf, 512, path.c_str());
+    g_config.target_process = buf;
 }
 
 // 保存INI配置
@@ -61,6 +64,7 @@ void SaveConfig(const std::string& path) {
     // 远程控制配置
     WritePrivateProfileStringA("General", "Resolution", g_config.resolution.c_str(), path.c_str());
     WritePrivateProfileStringA("General", "Framerate", g_config.framerate.c_str(), path.c_str());
+    WritePrivateProfileStringA("General", "TargetProcess", g_config.target_process.c_str(), path.c_str());
 }
 
 // 检查PVZ是否运行

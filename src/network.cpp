@@ -10,6 +10,7 @@
 // 全局网络状态
 NetworkState g_network_state;
 std::mutex g_network_mutex;
+static bool g_is_connecting = false;  // 是否正在连接
 
 // 初始化Winsock
 bool InitWinsock() {
@@ -169,4 +170,37 @@ void SendCommand(const std::string& cmd) {
     if (!g_network_state.connected) return;
 
     send(g_network_state.sock, cmd.c_str(), cmd.size(), 0);
+}
+
+// 异步连接函数
+void AsyncConnectTask(const std::string& ip, int port, bool is_server) {
+    g_is_connecting = true;
+    
+    bool success = false;
+    if (is_server) {
+        success = StartServer(port);
+    } else {
+        success = ConnectToServer(ip, port);
+    }
+    
+    if (!success) {
+        AddMessage("连接失败，请检查网络设置", MessageType::Error);
+    }
+    
+    g_is_connecting = false;
+}
+
+// 开始异步连接
+void StartAsyncConnect(const std::string& ip, int port, bool is_server) {
+    if (g_is_connecting || g_network_state.connected) {
+        return;
+    }
+    
+    std::thread connect_thread(AsyncConnectTask, ip, port, is_server);
+    connect_thread.detach();
+}
+
+// 检查是否正在连接
+bool IsConnecting() {
+    return g_is_connecting;
 }

@@ -22,3 +22,7 @@ bool ConnectToServer(const std::string& ip, int port);
 // 网络线程/命令
 void NetworkRecvThreadFunc();
 void SendCommand(const std::string& cmd);
+
+// 异步连接
+void StartAsyncConnect(const std::string& ip, int port, bool is_server);
+bool IsConnecting();

@@ -3,6 +3,7 @@
 #include <ui.h>
 #include <winsock2.h>
 #include <windows.h>
+#include <psapi.h>
 #include <gdiplus.h>
 #include <iostream>
 #include <thread>
@@ -11,6 +12,7 @@
 #include "network.h"
 
 #pragma comment(lib, "gdiplus.lib")
+#pragma comment(lib, "psapi.lib")
 
 // 全局变量
 RemoteState g_remote_state;
@@ -533,6 +535,57 @@ void ApplyRemoteConfig() {
     // 解析帧率
     g_remote_state.target_fps = ParseFramerate(g_config.framerate);
     
+    // 查找目标窗口
+    g_remote_state.target_window = FindWindowByProcessName(g_config.target_process);
+    
     std::cout << "远程控制配置已应用: " 
-              << g_config.resolution << " @ " << g_config.framerate << std::endl;
+              << g_config.resolution << " @ " << g_config.framerate 
+              << ", 目标进程: " << g_config.target_process << std::endl;
+}
+
+// 根据进程名查找窗口
+HWND FindWindowByProcessName(const std::string& process_name) {
+    // 遍历所有窗口
+    HWND hwnd = nullptr;
+    
+    // 使用EnumWindows枚举所有窗口
+    struct EnumData {
+        std::string process_name;
+        HWND found_window;
+    } data = {process_name, nullptr};
+    
+    auto enum_windows_proc = [](HWND hwnd, LPARAM lParam) -> BOOL {
+        EnumData* data = reinterpret_cast<EnumData*>(lParam);
+        
+        // 获取窗口进程ID
+        DWORD pid = 0;
+        GetWindowThreadProcessId(hwnd, &pid);
+        
+        // 打开进程
+        HANDLE hProcess = OpenProcess(PROCESS_QUERY_INFORMATION, FALSE, pid);
+        if (hProcess) {
+            char process_path[MAX_PATH] = {0};
+            if (GetModuleFileNameExA(hProcess, NULL, process_path, MAX_PATH)) {
+                // 提取进程名
+                std::string path = process_path;
+                size_t pos = path.find_last_of("\\/");
+                if (pos != std::string::npos) {
+                    std::string current_process = path.substr(pos + 1);
+                    // 比较进程名（不区分大小写）
+                    if (_stricmp(current_process.c_str(), data->process_name.c_str()) == 0) {
+                        data->found_window = hwnd;
+                        CloseHandle(hProcess);
+                        return FALSE;  // 找到了，停止枚举
+                    }
+                }
+            }
+            CloseHandle(hProcess);
+        }
+        
+        return TRUE;  // 继续枚举
+    };
+    
+    EnumWindows(enum_windows_proc, reinterpret_cast<LPARAM>(&data));
+    
+    return data.found_window;
 }

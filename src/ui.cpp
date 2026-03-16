@@ -124,7 +124,39 @@ bool CreateWin32OpenGLWindow() {
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
     io.FontGlobalScale = 1.0f;  // 字体全局缩放
 
-    ImGui::StyleColorsDark();
+    // 检测Windows主题并自适应
+    HKEY hKey;
+    DWORD value = 0;
+    DWORD size = sizeof(DWORD);
+    bool is_dark_theme = false;
+    
+    if (RegOpenKeyExA(HKEY_CURRENT_USER, 
+                      "Software\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize", 
+                      0, KEY_READ, &hKey) == ERROR_SUCCESS) {
+        if (RegQueryValueExA(hKey, "AppsUseLightTheme", NULL, NULL, (LPBYTE)&value, &size) == ERROR_SUCCESS) {
+            is_dark_theme = (value == 0);  // 0表示暗色主题
+        }
+        RegCloseKey(hKey);
+    }
+    
+    // 应用主题样式
+    ImGuiStyle& style = ImGui::GetStyle();
+    if (is_dark_theme) {
+        ImGui::StyleColorsDark();
+    } else {
+        ImGui::StyleColorsLight();
+    }
+    
+    // 调整样式使其更现代
+    style.WindowRounding = 8.0f;
+    style.FrameRounding = 4.0f;
+    style.GrabRounding = 4.0f;
+    style.ScrollbarRounding = 4.0f;
+    style.PopupRounding = 4.0f;
+    style.WindowPadding = ImVec2(10, 10);
+    style.ItemSpacing = ImVec2(8, 6);
+    style.FramePadding = ImVec2(8, 6);
+    
     ImGui_ImplWin32_Init(g_window_state.hwnd);
     ImGui_ImplOpenGL3_Init("#version 130");
 
@@ -354,12 +386,12 @@ void RenderGUI() {
     }
 
     ImGui::SameLine();
-    if (ImGui::Button("连接对方", ImVec2(100, 30)) && !g_network_state.connected) {
-        if (g_config.role == "server") {
-            StartServer(g_config.peer_port);
-        } else {
-            ConnectToServer(g_config.peer_ip, g_config.peer_port);
-        }
+    if (ImGui::Button("连接对方", ImVec2(100, 30)) && !g_network_state.connected && !IsConnecting()) {
+        StartAsyncConnect(g_config.peer_ip, g_config.peer_port, g_config.role == "server");
+        AddMessage("正在连接，请稍候...", MessageType::Info);
+    } else if (IsConnecting()) {
+        ImGui::SameLine();
+        ImGui::TextColored(ImVec4(1.0f, 0.8f, 0.2f, 1.0f), " (连接中...)");
     }
 
     ImGui::SameLine();
@@ -406,19 +438,29 @@ void AddMessage(const std::string& text, MessageType type) {
 
 // 渲染消息栏
 void RenderMessageBar() {
-    // 在窗口顶部固定位置显示消息栏
-    ImGui::SetNextWindowPos(ImVec2(20, 30));
-    ImGui::SetNextWindowSize(ImVec2(960, 80));
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 5.0f);
+    // 获取主窗口大小，自适应位置
+    ImVec2 main_window_size = ImGui::GetWindowSize();
+    ImVec2 main_window_pos = ImGui::GetWindowPos();
     
-    if (ImGui::Begin("消息栏", nullptr, 
+    // 消息栏位于主窗口底部
+    float msg_bar_height = 60.0f;
+    float msg_bar_width = main_window_size.x - 40.0f;  // 留20px边距
+    float msg_bar_x = main_window_pos.x + 20.0f;
+    float msg_bar_y = main_window_pos.y + main_window_size.y - msg_bar_height - 20.0f;
+    
+    ImGui::SetNextWindowPos(ImVec2(msg_bar_x, msg_bar_y));
+    ImGui::SetNextWindowSize(ImVec2(msg_bar_width, msg_bar_height));
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 3.0f);
+    ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0.1f, 0.1f, 0.1f, 0.9f));  // 半透明背景
+    
+    if (ImGui::Begin("##MessageBar", nullptr, 
                      ImGuiWindowFlags_NoTitleBar | 
                      ImGuiWindowFlags_NoResize | 
                      ImGuiWindowFlags_NoMove | 
                      ImGuiWindowFlags_NoScrollbar | 
                      ImGuiWindowFlags_NoCollapse)) {
-        // 显示最近的消息（最多3条）
-        int show_count = std::min((int)g_messages.size(), 3);
+        // 显示最近的消息（最多2条）
+        int show_count = std::min((int)g_messages.size(), 2);
         for (int i = 0; i < show_count; i++) {
             const MessageItem& msg = g_messages[g_messages.size() - 1 - i];
             
@@ -427,15 +469,15 @@ void RenderMessageBar() {
             const char* prefix = "";
             switch (msg.type) {
                 case MessageType::Info:
-                    color = ImVec4(0.7f, 0.7f, 0.7f, 1.0f);  // 灰色
+                    color = ImVec4(0.6f, 0.6f, 0.6f, 1.0f);  // 灰色
                     prefix = "[信息] ";
                     break;
                 case MessageType::Success:
-                    color = ImVec4(0.2f, 0.8f, 0.2f, 1.0f);  // 绿色
+                    color = ImVec4(0.3f, 0.8f, 0.3f, 1.0f);  // 绿色
                     prefix = "[成功] ";
                     break;
                 case MessageType::Warning:
-                    color = ImVec4(1.0f, 0.8f, 0.2f, 1.0f);  // 黄色
+                    color = ImVec4(1.0f, 0.7f, 0.2f, 1.0f);  // 黄色
                     prefix = "[警告] ";
                     break;
                 case MessageType::Error:
@@ -449,10 +491,11 @@ void RenderMessageBar() {
         }
         
         if (g_messages.empty()) {
-            ImGui::TextColored(ImVec4(0.5f, 0.5f, 0.5f, 1.0f), "暂无消息");
+            ImGui::TextColored(ImVec4(0.4f, 0.4f, 0.4f, 1.0f), "暂无消息");
         }
     }
     
+    ImGui::PopStyleColor();
     ImGui::PopStyleVar();
     ImGui::End();
 }
