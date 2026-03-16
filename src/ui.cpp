@@ -139,13 +139,76 @@ bool CreateWin32OpenGLWindow() {
         RegCloseKey(hKey);
     }
     
-    // 应用主题样式
+    // 应用粉蓝色渐变深色主题
     ImGuiStyle& style = ImGui::GetStyle();
-    if (is_dark_theme) {
-        ImGui::StyleColorsDark();
-    } else {
-        ImGui::StyleColorsLight();
-    }
+    
+    // 粉蓝色渐变颜色定义
+    ImVec4 color_bg = ImVec4(0.12f, 0.10f, 0.16f, 1.0f);      // 深蓝紫色背景
+    ImVec4 color_window = ImVec4(0.15f, 0.12f, 0.20f, 1.0f);   // 窗口背景
+    ImVec4 color_pink = ImVec4(0.85f, 0.60f, 0.75f, 1.0f);     // 粉色
+    ImVec4 color_blue = ImVec4(0.55f, 0.70f, 0.95f, 1.0f);     // 蓝色
+    ImVec4 color_pink_hover = ImVec4(0.90f, 0.70f, 0.80f, 1.0f); // 粉色悬停
+    ImVec4 color_blue_hover = ImVec4(0.65f, 0.80f, 1.0f, 1.0f);  // 蓝色悬停
+    ImVec4 color_pink_active = ImVec4(0.95f, 0.80f, 0.85f, 1.0f); // 粉色激活
+    ImVec4 color_blue_active = ImVec4(0.75f, 0.90f, 1.0f, 1.0f);  // 蓝色激活
+    ImVec4 color_text = ImVec4(0.95f, 0.95f, 1.0f, 1.0f);       // 浅色文字
+    ImVec4 color_text_disabled = ImVec4(0.50f, 0.50f, 0.60f, 1.0f); // 禁用文字
+    ImVec4 color_border = ImVec4(0.35f, 0.30f, 0.50f, 1.0f);     // 边框
+    ImVec4 color_header = ImVec4(0.60f, 0.40f, 0.60f, 1.0f);     // 标题背景
+    
+    // 应用颜色到ImGui样式
+    style.Colors[ImGuiCol_WindowBg] = color_window;
+    style.Colors[ImGuiCol_ChildBg] = color_bg;
+    style.Colors[ImGuiCol_PopupBg] = ImVec4(0.18f, 0.15f, 0.25f, 0.95f);
+    style.Colors[ImGuiCol_Border] = color_border;
+    style.Colors[ImGuiCol_BorderShadow] = ImVec4(0.0f, 0.0f, 0.0f, 0.0f);
+    style.Colors[ImGuiCol_FrameBg] = ImVec4(0.20f, 0.17f, 0.25f, 1.0f);
+    style.Colors[ImGuiCol_FrameBgHovered] = ImVec4(0.25f, 0.20f, 0.30f, 1.0f);
+    style.Colors[ImGuiCol_FrameBgActive] = ImVec4(0.30f, 0.25f, 0.35f, 1.0f);
+    style.Colors[ImGuiCol_TitleBg] = color_header;
+    style.Colors[ImGuiCol_TitleBgActive] = color_pink;
+    style.Colors[ImGuiCol_TitleBgCollapsed] = ImVec4(0.40f, 0.30f, 0.45f, 1.0f);
+    style.Colors[ImGuiCol_MenuBarBg] = ImVec4(0.18f, 0.15f, 0.25f, 1.0f);
+    style.Colors[ImGuiCol_ScrollbarBg] = ImVec4(0.15f, 0.12f, 0.20f, 1.0f);
+    style.Colors[ImGuiCol_ScrollbarGrab] = color_pink;
+    style.Colors[ImGuiCol_ScrollbarGrabHovered] = color_pink_hover;
+    style.Colors[ImGuiCol_ScrollbarGrabActive] = color_pink_active;
+    style.Colors[ImGuiCol_CheckMark] = color_blue;
+    style.Colors[ImGuiCol_SliderGrab] = color_pink;
+    style.Colors[ImGuiCol_SliderGrabActive] = color_pink_active;
+    style.Colors[ImGuiCol_Button] = ImVec4(0.60f, 0.45f, 0.65f, 1.0f);
+    style.Colors[ImGuiCol_ButtonHovered] = color_pink;
+    style.Colors[ImGuiCol_ButtonActive] = color_pink_active;
+    style.Colors[ImGuiCol_Header] = color_header;
+    style.Colors[ImGuiCol_HeaderHovered] = color_pink_hover;
+    style.Colors[ImGuiCol_HeaderActive] = color_pink_active;
+    style.Colors[ImGuiCol_Separator] = color_border;
+    style.Colors[ImGuiCol_SeparatorHovered] = color_pink;
+    style.Colors[ImGuiCol_SeparatorActive] = color_pink_active;
+    style.Colors[ImGuiCol_ResizeGrip] = color_pink;
+    style.Colors[ImGuiCol_ResizeGripHovered] = color_pink_hover;
+    style.Colors[ImGuiCol_ResizeGripActive] = color_pink_active;
+    style.Colors[ImGuiCol_Tab] = ImVec4(0.40f, 0.30f, 0.45f, 1.0f);
+    style.Colors[ImGuiCol_TabHovered] = color_pink_hover;
+    style.Colors[ImGuiCol_TabActive] = color_pink;
+    style.Colors[ImGuiCol_TabUnfocused] = ImVec4(0.35f, 0.25f, 0.40f, 1.0f);
+    style.Colors[ImGuiCol_TabUnfocusedActive] = ImVec4(0.45f, 0.35f, 0.50f, 1.0f);
+    style.Colors[ImGuiCol_PlotLines] = color_blue;
+    style.Colors[ImGuiCol_PlotLinesHovered] = color_blue_hover;
+    style.Colors[ImGuiCol_PlotHistogram] = color_pink;
+    style.Colors[ImGuiCol_PlotHistogramHovered] = color_pink_hover;
+    style.Colors[ImGuiCol_TableHeaderBg] = color_header;
+    style.Colors[ImGuiCol_TableBorderStrong] = color_border;
+    style.Colors[ImGuiCol_TableBorderLight] = ImVec4(0.25f, 0.20f, 0.30f, 1.0f);
+    style.Colors[ImGuiCol_TableRowBg] = ImVec4(0.0f, 0.0f, 0.0f, 0.0f);
+    style.Colors[ImGuiCol_TableRowBgAlt] = ImVec4(0.15f, 0.12f, 0.18f, 1.0f);
+    style.Colors[ImGuiCol_Text] = color_text;
+    style.Colors[ImGuiCol_TextDisabled] = color_text_disabled;
+    style.Colors[ImGuiCol_DragDropTarget] = color_pink;
+    style.Colors[ImGuiCol_NavHighlight] = color_pink;
+    style.Colors[ImGuiCol_NavWindowingHighlight] = ImVec4(0.8f, 0.6f, 0.7f, 0.4f);
+    style.Colors[ImGuiCol_NavWindowingDimBg] = ImVec4(0.15f, 0.12f, 0.18f, 0.5f);
+    style.Colors[ImGuiCol_ModalWindowDimBg] = ImVec4(0.15f, 0.12f, 0.18f, 0.6f);
     
     // 调整样式使其更现代
     style.WindowRounding = 8.0f;
