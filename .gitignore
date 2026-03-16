@@ -1,2 +1,6 @@
 old
 imgui
+build
+test.txt
+CMakeFiles
+CMakeCache.txt
