@@ -392,16 +392,21 @@ void RenderGUI() {
                         // 启动抓屏线程
                         std::thread capture_thread(RemoteCaptureThreadFunc);
                         capture_thread.detach();
+                        AddMessage("远程控制传输已启动: " + g_config.resolution + " @ " + g_config.framerate, MessageType::Success);
                     } else {
                         // 应用配置并启动显示线程
                         ApplyRemoteConfig();
                         std::thread display_thread(RemoteDisplayThreadFunc);
                         display_thread.detach();
+                        AddMessage("远程控制接收已启动", MessageType::Success);
                     }
+                } else {
+                    AddMessage("请先连接对方", MessageType::Warning);
                 }
             } else {
                 // 停止传输
                 g_remote_state.streaming = false;
+                AddMessage("远程控制传输已停止", MessageType::Info);
             }
         }
 
@@ -422,9 +427,14 @@ void RenderGUI() {
 
         ImGui::SameLine();
         if (ImGui::Button("手动备份", ImVec2(100, 30))) {
-            BackupSaveDir(g_config.save_path, g_config.local_backup_path);
-            if (g_network_state.connected) {
-                SendCommand("BACKUP_REMOTE");
+            if (BackupSaveDir(g_config.save_path, g_config.local_backup_path)) {
+                AddMessage("手动备份成功", MessageType::Success);
+                if (g_network_state.connected) {
+                    SendCommand("BACKUP_REMOTE");
+                    AddMessage("已发送远程备份指令", MessageType::Success);
+                }
+            } else {
+                AddMessage("手动备份失败", MessageType::Error);
             }
         }
 
@@ -434,11 +444,13 @@ void RenderGUI() {
 
         ImGui::Text("一键关闭功能:");
         if (ImGui::Button("关闭自己+PVZ", ImVec2(120, 30))) {
+            AddMessage("正在关闭本机程序和PVZ...", MessageType::Warning);
             CloseSelfAndTarget();
         }
 
         ImGui::SameLine();
         if (ImGui::Button("关闭双方", ImVec2(100, 30))) {
+            AddMessage("正在关闭双方所有程序...", MessageType::Warning);
             CloseSelfAndTarget();
             if (g_network_state.connected) {
                 SendCommand("CLOSE_BOTH");
@@ -448,7 +460,10 @@ void RenderGUI() {
         ImGui::SameLine();
         if (ImGui::Button("关闭对方", ImVec2(100, 30))) {
             if (g_network_state.connected) {
+                AddMessage("正在关闭对方程序...", MessageType::Warning);
                 SendCommand("CLOSE_SELF");
+            } else {
+                AddMessage("未连接对方，无法关闭", MessageType::Error);
             }
         }
         
@@ -526,19 +541,29 @@ void RenderGUI() {
 
     ImGui::SameLine();
     if (ImGui::Button("启动PVZ", ImVec2(100, 30))) {
-        StartPVZ(g_config.pvz_path);
-        if (g_network_state.connected) {
-            SendCommand("START_PVZ");
+        if (StartPVZ(g_config.pvz_path)) {
+            AddMessage("PVZ启动成功", MessageType::Success);
+            if (g_network_state.connected) {
+                SendCommand("START_PVZ");
+                AddMessage("已发送启动指令到对方", MessageType::Success);
+            }
+        } else {
+            AddMessage("PVZ启动失败", MessageType::Error);
         }
     }
 
     ImGui::Spacing();
     if (ImGui::Button("备份存档到本地", ImVec2(150, 30))) {
-        BackupSaveDir(g_config.save_path, g_config.local_backup_path);
+        if (BackupSaveDir(g_config.save_path, g_config.local_backup_path)) {
+            AddMessage("本地备份成功", MessageType::Success);
+        } else {
+            AddMessage("本地备份失败", MessageType::Error);
+        }
     }
     ImGui::SameLine();
     if (ImGui::Button("发送远程备份指令", ImVec2(150, 30)) && g_network_state.connected) {
         SendCommand("BACKUP_REMOTE");
+        AddMessage("已发送远程备份指令", MessageType::Success);
     }
 
     // 渲染消息栏（在最上方）
