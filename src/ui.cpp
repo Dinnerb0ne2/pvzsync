@@ -87,7 +87,7 @@ bool CreateWin32OpenGLWindow() {
         wc.lpszClassName,
         L"PVZ内网联动工具",
         WS_OVERLAPPEDWINDOW,
-        100, 100, 1050, 900,
+        100, 100, 1050, 980,
         NULL, NULL, wc.hInstance, NULL
     );
 
@@ -239,7 +239,7 @@ void RenderGUI() {
 
     // 设置窗口
     ImGui::SetNextWindowPos(ImVec2(10, 10));
-    ImGui::SetNextWindowSize(ImVec2(1000, 850));
+    ImGui::SetNextWindowSize(ImVec2(1000, 920));
     ImGui::Begin("PVZ 内网联动工具", nullptr, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove);
 
     // 基础配置
@@ -489,16 +489,16 @@ void RenderMessageBar() {
     ImVec2 main_window_size = ImGui::GetWindowSize();
     ImVec2 main_window_pos = ImGui::GetWindowPos();
     
-    // 消息栏位于主窗口底部
-    float msg_bar_height = 60.0f;
+    // 消息栏位于主窗口底部，减小高度避免遮挡
+    float msg_bar_height = 45.0f;
     float msg_bar_width = main_window_size.x - 40.0f;  // 留20px边距
     float msg_bar_x = main_window_pos.x + 20.0f;
-    float msg_bar_y = main_window_pos.y + main_window_size.y - msg_bar_height - 20.0f;
+    float msg_bar_y = main_window_pos.y + main_window_size.y - msg_bar_height - 10.0f;  // 减小底部边距
     
     ImGui::SetNextWindowPos(ImVec2(msg_bar_x, msg_bar_y));
     ImGui::SetNextWindowSize(ImVec2(msg_bar_width, msg_bar_height));
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 3.0f);
-    ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0.1f, 0.1f, 0.1f, 0.9f));  // 半透明背景
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 5.0f);
+    ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0.0f, 0.0f, 0.0f, 0.0f));  // 透明背景，使用自定义绘制
     
     if (ImGui::Begin("##MessageBar", nullptr, 
                      ImGuiWindowFlags_NoTitleBar | 
@@ -506,35 +506,45 @@ void RenderMessageBar() {
                      ImGuiWindowFlags_NoMove | 
                      ImGuiWindowFlags_NoScrollbar | 
                      ImGuiWindowFlags_NoCollapse)) {
+        // 使用ImDrawList绘制粉蓝色渐变背景
+        ImDrawList* draw_list = ImGui::GetWindowDrawList();
+        ImVec2 p_min = ImGui::GetWindowPos();
+        ImVec2 p_max = ImVec2(p_min.x + msg_bar_width, p_min.y + msg_bar_height);
+        
+        // 绘制渐变背景（粉色到蓝色）
+        ImU32 color_top = ImGui::ColorConvertFloat4ToU32(ImVec4(1.0f, 0.75f, 0.8f, 0.85f));  // 粉色
+        ImU32 color_bottom = ImGui::ColorConvertFloat4ToU32(ImVec4(0.6f, 0.8f, 1.0f, 0.85f));  // 蓝色
+        draw_list->AddRectFilledMultiColor(p_min, p_max, color_top, color_top, color_bottom, color_bottom);
+        
         // 显示最近的消息（最多2条）
         int show_count = std::min((int)g_messages.size(), 2);
         for (int i = 0; i < show_count; i++) {
             const MessageItem& msg = g_messages[g_messages.size() - 1 - i];
             
-            // 根据消息类型设置颜色
+            // 根据消息类型设置颜色（使用深色文字以对比渐变背景）
             ImVec4 color;
             const char* prefix = "";
             switch (msg.type) {
                 case MessageType::Info:
-                    color = ImVec4(0.6f, 0.6f, 0.6f, 1.0f);  // 灰色
+                    color = ImVec4(0.8f, 0.8f, 0.8f, 1.0f);  // 浅灰色
                     prefix = "[信息] ";
                     break;
                 case MessageType::Success:
-                    color = ImVec4(0.3f, 0.8f, 0.3f, 1.0f);  // 绿色
+                    color = ImVec4(0.4f, 0.9f, 0.4f, 1.0f);  // 亮绿色
                     prefix = "[成功] ";
                     break;
                 case MessageType::Warning:
-                    color = ImVec4(1.0f, 0.7f, 0.2f, 1.0f);  // 黄色
+                    color = ImVec4(1.0f, 0.9f, 0.4f, 1.0f);  // 亮黄色
                     prefix = "[警告] ";
                     break;
                 case MessageType::Error:
-                    color = ImVec4(1.0f, 0.3f, 0.3f, 1.0f);  // 红色
+                    color = ImVec4(1.0f, 0.6f, 0.6f, 1.0f);  // 亮红色
                     prefix = "[错误] ";
                     break;
             }
             
-            // 显示消息
-            ImGui::TextColored(color, "%s%s", prefix, msg.text.c_str());
+            // 显示消息（深色文字）
+            ImGui::TextColored(ImVec4(0.2f, 0.2f, 0.3f, 1.0f), "%s%s", prefix, msg.text.c_str());
         }
         
         if (g_messages.empty()) {
