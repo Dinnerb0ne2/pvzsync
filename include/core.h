@@ -9,6 +9,7 @@ struct Config {
     std::string role = "server";          
     std::string peer_ip = "192.168.1.105";
     int peer_port = 8888;                 
+    std::string address_family = "Auto";  // 地址类型：Auto/IPv4/IPv6
     std::string pvz_path = "C:\\Program Files\\PlantsVsZombies\\PlantsVsZombies.exe";
     std::string save_path = "C:\\Users\\你的用户名\\AppData\\Roaming\\PopCap Games\\PlantsVsZombies\\userdata";
     std::string local_backup_path = "C:\\PVZBackup\\Local";

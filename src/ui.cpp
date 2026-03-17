@@ -332,12 +332,27 @@ void RenderGUI() {
         ImGui::InputText("本机角色 (server/client)", role_buf, sizeof(role_buf));
         g_config.role = role_buf;
 
-        char peer_ip_buf[32] = {0};
+        char peer_ip_buf[64] = {0};
         strncpy(peer_ip_buf, g_config.peer_ip.c_str(), sizeof(peer_ip_buf)-1);
-        ImGui::InputText("对方IP", peer_ip_buf, sizeof(peer_ip_buf));
+        ImGui::InputText("对方IP (支持IPv4/IPv6)", peer_ip_buf, sizeof(peer_ip_buf));
         g_config.peer_ip = peer_ip_buf;
 
         ImGui::InputInt("通信端口", &g_config.peer_port);
+
+        char addr_family_buf[32] = {0};
+        strncpy(addr_family_buf, g_config.address_family.c_str(), sizeof(addr_family_buf)-1);
+        if (ImGui::BeginCombo("地址类型", addr_family_buf)) {
+            if (ImGui::Selectable("Auto")) {
+                g_config.address_family = "Auto";
+            }
+            if (ImGui::Selectable("IPv4")) {
+                g_config.address_family = "IPv4";
+            }
+            if (ImGui::Selectable("IPv6")) {
+                g_config.address_family = "IPv6";
+            }
+            ImGui::EndCombo();
+        }
     }
 
     // 路径配置
@@ -530,8 +545,9 @@ void RenderGUI() {
 
     ImGui::SameLine();
     if (ImGui::Button("连接对方", ImVec2(100, 30)) && !g_network_state.connected && !IsConnecting()) {
-        StartAsyncConnect(g_config.peer_ip, g_config.peer_port, g_config.role == "server");
-        AddMessage("正在连接，请稍候...", MessageType::Info);
+        AddressFamily addr_family = ParseAddressFamily(g_config.address_family);
+        StartAsyncConnect(g_config.peer_ip, g_config.peer_port, g_config.role == "server", addr_family);
+        AddMessage("正在连接，请稍候... (" + GetAddressFamilyString(addr_family) + ")", MessageType::Info);
     } else if (IsConnecting()) {
         ImGui::SameLine();
         ImGui::TextColored(ImVec4(1.0f, 0.8f, 0.2f, 1.0f), " (连接中...)");

@@ -28,6 +28,9 @@ void ReadConfig(const std::string& path) {
     GetPrivateProfileStringA("General", "PeerPort", "8888", buf, 512, path.c_str());
     g_config.peer_port = atoi(buf);
 
+    GetPrivateProfileStringA("General", "AddressFamily", "Auto", buf, 512, path.c_str());
+    g_config.address_family = buf;
+
     // 路径配置
     GetPrivateProfileStringA("General", "PVZPath", g_config.pvz_path.c_str(), buf, 512, path.c_str());
     g_config.pvz_path = buf;
@@ -58,6 +61,7 @@ void SaveConfig(const std::string& path) {
     WritePrivateProfileStringA("General", "Role", g_config.role.c_str(), path.c_str());
     WritePrivateProfileStringA("General", "PeerIP", g_config.peer_ip.c_str(), path.c_str());
     WritePrivateProfileStringA("General", "PeerPort", std::to_string(g_config.peer_port).c_str(), path.c_str());
+    WritePrivateProfileStringA("General", "AddressFamily", g_config.address_family.c_str(), path.c_str());
     WritePrivateProfileStringA("General", "PVZPath", g_config.pvz_path.c_str(), path.c_str());
     WritePrivateProfileStringA("General", "SaveFilePath", g_config.save_path.c_str(), path.c_str());
     WritePrivateProfileStringA("General", "LocalBackupPath", g_config.local_backup_path.c_str(), path.c_str());

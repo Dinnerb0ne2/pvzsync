@@ -12,7 +12,7 @@ endif()
 
 if(MINGW)
     add_compile_options(-O2 -Wall -Wno-unused-variable -Wno-missing-field-initializers)
-    add_link_options(-static-libgcc -static-libstdc++ -mwindows)
+    add_link_options(-static -mwindows)
 endif()
 
 include_directories(
