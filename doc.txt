@@ -1,0 +1,125 @@
+PVZ内网联动工具
+==============
+
+功能说明
+--------
+本工具用于《植物大战僵尸杂交版》（PVZ-Hybrid）局域网联动控制，支持两台内网电脑间的进程联动、存档自动备份和远程控制。
+
+主要功能
+--------
+1. 进程联动控制
+   - 检测PVZ运行状态
+   - 远程启动PVZ进程
+   - 指定进程名抓屏（如pvzHE.exe）
+
+2. 存档自动备份
+   - 本地备份：自动带时间戳备份存档
+   - 远程备份：通过网络指令备份对方存档
+
+3. 远程桌面控制
+   - 实时屏幕传输（支持540p/720p/1080p）
+   - 鼠标控制（左键/右键/中键/滚轮）
+   - 键盘控制
+   - 可配置帧率（25/30/45/60fps）
+
+4. 一键关闭功能
+   - 关闭自己+PVZ
+   - 关闭双方所有程序
+   - 关闭对方程序
+
+目录结构
+--------
+pvzsync/
+├── build/              # 编译输出目录
+├── config.ini          # 配置文件（运行时生成）
+├── doc.txt            # 本文档
+├── CMakeLists.txt     # CMake配置
+├── main.cpp           # 程序入口
+├── include/           # 头文件
+│   ├── core.h         # 核心业务
+│   ├── network.h      # 网络通信
+│   ├── remote.h       # 远程控制
+│   └── ui.h           # UI界面
+└── src/               # 源文件
+    ├── core.cpp
+    ├── network.cpp
+    ├── remote.cpp
+    └── ui.cpp
+
+编译步骤
+--------
+# 清理旧build目录
+cd build
+mingw32-make clean
+
+# 生成Makefile
+cmake .. -G "MinGW Makefiles"
+
+# 编译
+mingw32-make -j4
+
+# 运行
+./pvz_tool.exe
+
+配置文件（config.ini）
+---------------------
+[General]
+AllowAutoOpen=1          # 随动打开PVZ
+Role=server              # 角色：server(服务端)/client(客户端)
+PeerIP=192.168.1.105     # 对方IP地址
+PeerPort=8888            # 通信端口
+PVZPath=C:\Program Files\PlantsVsZombies\PlantsVsZombies.exe
+SaveFilePath=C:\Users\用户名\AppData\Roaming\PopCap Games\PlantsVsZombies\userdata
+LocalBackupPath=C:\PVZBackup\Local
+RemoteBackupPath=C:\PVZBackup\Remote
+Resolution=720p          # 分辨率：540p/720p/1080p
+Framerate=25fps          # 帧率：25fps/30fps/45fps/60fps
+TargetProcess=pvzHE.exe  # 目标进程名
+
+使用方法
+--------
+1. 服务端（被控端）设置：
+   - Role=server
+   - 配置对方的IP和端口
+   - 配置PVZ路径和存档路径
+   - 配置目标进程名（如pvzHE.exe）
+
+2. 客户端（控制端）设置：
+   - Role=client
+   - 配置服务端的IP和端口
+   - 配置PVZ路径和存档路径
+
+3. 连接步骤：
+   - 两台电脑在同一内网
+   - 分别运行pvz_tool.exe
+   - 点击"连接对方"按钮
+   - 连接成功后可以：
+     * 启动PVZ
+     * 备份存档
+     * 开始远程控制传输
+
+4. 远程控制：
+   - 点击"开始传输"按钮
+   - 客户端会实时显示服务端画面
+   - 在画面上点击可以控制服务端
+
+注意事项
+--------
+1. 确保两台电脑在同一内网
+2. 关闭防火墙或添加防火墙例外
+3. 确保配置的PVZ路径正确
+4. 目标进程名必须与实际运行的进程名一致
+5. 远程控制需要网络连接稳定
+
+系统要求
+--------
+- 操作系统：Windows 10/11
+- 编译器：MinGW-w64（64位）
+- 网络协议：TCP（局域网）
+- 依赖库：ws2_32, gdi32, opengl32, user32, kernel32, shlwapi, dwmapi, gdiplus, pthread
+
+版本信息
+--------
+版本：1.0.0
+编译标准：C++23
+构建工具：CMake + MinGW Makefiles
