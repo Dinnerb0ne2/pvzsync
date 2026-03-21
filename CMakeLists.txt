@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.18)
 project(PVZSync LANGUAGES CXX VERSION 1.0.0)
 
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
@@ -52,6 +52,7 @@ target_link_libraries(pvz_tool PRIVATE
     shlwapi
     gdiplus
     psapi
+    dwmapi
 )
 
 # 复制配置文件到build目录（如果存在）
