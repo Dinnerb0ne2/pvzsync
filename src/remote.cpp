@@ -389,12 +389,14 @@ void RemoteCaptureThreadFunc() {
     // 初始化GDI+
     if (!InitGDIPlus()) {
         std::cerr << "GDI+初始化失败" << std::endl;
+        AddMessage("GDI+初始化失败", MessageType::Error);
         return;
     }
 
     // 初始化屏幕捕获
     if (!InitScreenCapture()) {
         std::cerr << "屏幕捕获初始化失败" << std::endl;
+        AddMessage("屏幕捕获初始化失败", MessageType::Error);
         CleanupGDIPlus();
         return;
     }
@@ -403,13 +405,61 @@ void RemoteCaptureThreadFunc() {
 
     // 分配JPEG缓冲区（最大可能大小）
     size_t jpeg_buffer_size = g_capture_buffer_size;
-    uint8_t* jpeg_buffer = new uint8_t[jpeg_buffer_size];
+    uint8_t* jpeg_buffer = nullptr;
+    try {
+        jpeg_buffer = new uint8_t[jpeg_buffer_size];
+    } catch (const std::bad_alloc& e) {
+        std::cerr << "分配JPEG缓冲区失败: " << e.what() << std::endl;
+        AddMessage("内存分配失败", MessageType::Error);
+        CleanupScreenCapture();
+        CleanupGDIPlus();
+        return;
+    }
 
     uint32_t frame_id = 0;
     int frame_time = 1000 / g_remote_state.target_fps;
+    g_remote_state.last_frame_time = std::chrono::steady_clock::now();
+    g_remote_state.frames_sent = 0;
+    int consecutive_low_fps = 0;  // 连续低帧率计数
 
     while (g_remote_state.streaming) {
         auto start_time = std::chrono::steady_clock::now();
+
+        // 检查网络连接状态
+        if (!g_network_state.connected) {
+            std::cerr << "网络连接断开，停止传输" << std::endl;
+            AddMessage("网络连接断开，远程控制已停止", MessageType::Error);
+            break;
+        }
+
+        // 动态调整JPEG质量
+        if (g_remote_state.auto_quality && g_remote_state.frames_sent > 30) {
+            float current_fps = g_remote_state.fps;
+            float target_fps = g_remote_state.target_fps;
+            
+            if (current_fps < target_fps * 0.7f) {
+                // 帧率过低，降低质量
+                if (g_remote_state.jpeg_quality > g_remote_state.min_quality) {
+                    g_remote_state.jpeg_quality -= 5;
+                    consecutive_low_fps++;
+                    if (consecutive_low_fps >= 3) {
+                        AddMessage("降低JPEG质量到 " + std::to_string(g_remote_state.jpeg_quality) + " 以提升帧率", MessageType::Info);
+                        consecutive_low_fps = 0;
+                    }
+                }
+            } else if (current_fps > target_fps * 1.2f) {
+                // 帧率过高，提高质量
+                if (g_remote_state.jpeg_quality < g_remote_state.max_quality) {
+                    g_remote_state.jpeg_quality += 2;
+                    consecutive_low_fps = 0;
+                    if (g_remote_state.frames_sent % 60 == 0) {
+                        AddMessage("提高JPEG质量到 " + std::to_string(g_remote_state.jpeg_quality) + " 以提升画质", MessageType::Info);
+                    }
+                }
+            } else {
+                consecutive_low_fps = 0;
+            }
+        }
 
         // 捕获屏幕
         size_t compressed_size = 0;
@@ -427,6 +477,16 @@ void RemoteCaptureThreadFunc() {
             
             // 发送画面数据
             send(g_network_state.sock, (char*)jpeg_buffer, compressed_size, 0);
+            
+            g_remote_state.frames_sent++;
+            
+            // 计算实际帧率
+            auto now = std::chrono::steady_clock::now();
+            auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - g_remote_state.last_frame_time);
+            if (elapsed.count() > 0) {
+                g_remote_state.fps = 1000.0f / elapsed.count();
+            }
+            g_remote_state.last_frame_time = now;
         }
 
         // 控制帧率
@@ -437,12 +497,16 @@ void RemoteCaptureThreadFunc() {
         }
     }
 
-    // 清理
-    delete[] jpeg_buffer;
+    // 清理资源
+    if (jpeg_buffer) {
+        delete[] jpeg_buffer;
+        jpeg_buffer = nullptr;
+    }
     CleanupScreenCapture();
     CleanupGDIPlus();
     
-    std::cout << "远程捕获线程退出" << std::endl;
+    std::cout << "远程捕获线程退出，共发送 " << g_remote_state.frames_sent << " 帧" << std::endl;
+    AddMessage("远程控制传输已停止，共发送 " + std::to_string(g_remote_state.frames_sent) + " 帧", MessageType::Info);
 }
 
 // 远程显示线程（客户端）
@@ -450,14 +514,25 @@ void RemoteDisplayThreadFunc() {
     std::cout << "远程显示线程启动" << std::endl;
     AddMessage("远程控制接收已启动", MessageType::Success);
 
+    g_remote_state.frames_received = 0;
+    g_remote_state.last_frame_time = std::chrono::steady_clock::now();
+
     // 接收画面数据
     while (g_remote_state.streaming) {
+        // 检查网络连接状态
+        if (!g_network_state.connected) {
+            std::cerr << "网络连接断开，停止接收" << std::endl;
+            AddMessage("网络连接断开，远程控制已停止", MessageType::Error);
+            break;
+        }
+
         // 接收包头
         PacketHeader header;
         int recv_size = recv(g_network_state.sock, (char*)&header, sizeof(header), 0);
         
         if (recv_size != sizeof(header)) {
             std::cerr << "接收包头失败" << std::endl;
+            AddMessage("接收数据失败，远程控制已停止", MessageType::Error);
             break;
         }
 
@@ -471,7 +546,15 @@ void RemoteDisplayThreadFunc() {
                 // 解压JPEG并更新到纹理
                 int width = 0, height = 0;
                 if (DecompressJPEG(jpeg_buffer, header.size, g_remote_frame_buffer, &width, &height)) {
-                    // 纹理更新会在RenderGUI中进行
+                    g_remote_state.frames_received++;
+                    
+                    // 计算实际帧率
+                    auto now = std::chrono::steady_clock::now();
+                    auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - g_remote_state.last_frame_time);
+                    if (elapsed.count() > 0) {
+                        g_remote_state.fps = 1000.0f / elapsed.count();
+                    }
+                    g_remote_state.last_frame_time = now;
                 }
             }
             
@@ -493,7 +576,8 @@ void RemoteDisplayThreadFunc() {
         }
     }
 
-    std::cout << "远程显示线程退出" << std::endl;
+    std::cout << "远程显示线程退出，共接收 " << g_remote_state.frames_received << " 帧" << std::endl;
+    AddMessage("远程控制接收已停止，共接收 " + std::to_string(g_remote_state.frames_received) + " 帧", MessageType::Info);
 }
 
 // 解析分辨率字符串

@@ -28,6 +28,15 @@ enum class MessageType {
     Error       // 错误信息
 };
 
+// 加载状态
+enum class LoadingState {
+    None,       // 无加载
+    Connecting, // 连接中
+    StartingPVZ, // 启动PVZ中
+    BackingUp, // 备份中
+    Streaming  // 传输中
+};
+
 // 消息项
 struct MessageItem {
     std::string text;
@@ -41,9 +50,12 @@ extern WindowState g_window_state;
 // 消息系统
 extern std::vector<MessageItem> g_messages;
 extern const int MAX_MESSAGES;
+extern LoadingState g_loading_state;  // 全局加载状态
+extern std::string g_loading_message;  // 加载提示信息
 
 void AddMessage(const std::string& text, MessageType type = MessageType::Info);
 void RenderMessageBar();
+void SetLoadingState(LoadingState state, const std::string& message);
 
 // 窗口过程
 LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);

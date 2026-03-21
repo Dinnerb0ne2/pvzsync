@@ -1,0 +1,1 @@
+g++ -std=c++23 -O3 -mwindows -I./imgui -I./imgui/backends main3.cpp ./imgui/imgui.cpp ./imgui/imgui_draw.cpp ./imgui/imgui_tables.cpp ./imgui/imgui_widgets.cpp ./imgui/backends/imgui_impl_win32.cpp ./imgui/backends/imgui_impl_opengl3.cpp -o pst3.exe -lws2_32 -lgdi32 -lopengl32 -lshlwapi -lkernel32 -luser32 -lshell32 -ldwmapi -lpthread -static

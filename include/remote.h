@@ -60,6 +60,13 @@ struct RemoteState {
     int capture_height = 720;      // 抓屏高度（720p）
     int jpeg_quality = 75;         // JPEG压缩质量
     HWND target_window = nullptr;  // 目标窗口（PVZ窗口）
+    uint32_t frames_sent = 0;      // 已发送帧数
+    uint32_t frames_received = 0;   // 已接收帧数
+    float fps = 0.0f;              // 实际帧率
+    std::chrono::steady_clock::time_point last_frame_time;  // 最后一帧时间
+    bool auto_quality = true;        // 是否自动调整JPEG质量
+    int min_quality = 50;          // 最低JPEG质量
+    int max_quality = 90;          // 最高JPEG质量
 };
 
 // 全局远程控制状态

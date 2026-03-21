@@ -6,11 +6,20 @@
 #include <iostream>
 #include <thread>
 #include <mutex>
+#include <chrono>
 
 // 全局网络状态
 NetworkState g_network_state;
 std::mutex g_network_mutex;
 static bool g_is_connecting = false;  // 是否正在连接
+static std::thread g_heartbeat_thread;  // 心跳线程
+static std::thread g_reconnect_thread;  // 重连线程
+static std::atomic<bool> g_heartbeat_running{false};  // 心跳线程运行标志
+static std::atomic<bool> g_reconnect_running{false};  // 重连线程运行标志
+static std::string g_reconnect_ip;  // 重连IP
+static int g_reconnect_port = 0;  // 重连端口
+static bool g_reconnect_is_server = false;  // 重连是否为服务端
+static AddressFamily g_reconnect_addr_family = AddressFamily::Auto;  // 重连地址类型
 
 // 初始化Winsock
 bool InitWinsock() {
@@ -27,6 +36,18 @@ bool InitWinsock() {
 
 // 清理Winsock
 void CleanupWinsock() {
+    // 停止心跳和重连线程
+    g_heartbeat_running = false;
+    g_reconnect_running = false;
+    g_network_state.should_reconnect = false;
+    
+    if (g_heartbeat_thread.joinable()) {
+        g_heartbeat_thread.join();
+    }
+    if (g_reconnect_thread.joinable()) {
+        g_reconnect_thread.join();
+    }
+    
     if (g_network_state.sock != INVALID_SOCKET) {
         closesocket(g_network_state.sock);
         g_network_state.sock = INVALID_SOCKET;
@@ -129,9 +150,15 @@ bool StartServer(int port, AddressFamily addr_family) {
     std::cout << "客户端连接: " << client_ip_str << std::endl;
     AddMessage("客户端已连接: " + std::string(client_ip_str), MessageType::Success);
 
+    // 初始化心跳时间
+    g_network_state.last_heartbeat = std::chrono::steady_clock::now();
+
     // 启动接收线程
     std::thread recv_thread(NetworkRecvThreadFunc);
     recv_thread.detach();
+
+    // 启动心跳线程
+    StartHeartbeatThread();
 
     return true;
 }
@@ -184,9 +211,15 @@ bool ConnectToServer(const std::string& ip, int port, AddressFamily addr_family)
               << (af == AF_INET6 ? "IPv6" : "IPv4") << ")" << std::endl;
     AddMessage("已连接到服务端: " + ip + ":" + std::to_string(port), MessageType::Success);
 
+    // 初始化心跳时间
+    g_network_state.last_heartbeat = std::chrono::steady_clock::now();
+
     // 启动接收线程
     std::thread recv_thread(NetworkRecvThreadFunc);
     recv_thread.detach();
+
+    // 启动心跳线程
+    StartHeartbeatThread();
 
     return true;
 }
@@ -206,6 +239,13 @@ void NetworkRecvThreadFunc() {
         if (recv_len <= 0) {
             std::cerr << "连接断开: " << WSAGetLastError() << std::endl;
             g_network_state.connected = false;
+            AddMessage("连接已断开", MessageType::Error);
+            
+            // 启动重连机制
+            if (g_network_state.should_reconnect) {
+                StartReconnectThread(g_reconnect_ip, g_reconnect_port, g_reconnect_is_server, g_reconnect_addr_family);
+            }
+            
             CleanupWinsock();
             break;
         }
@@ -214,8 +254,14 @@ void NetworkRecvThreadFunc() {
         std::string cmd = buf;
         std::cout << "收到命令: " << cmd << std::endl;
 
+        // 更新心跳时间
+        g_network_state.last_heartbeat = std::chrono::steady_clock::now();
+
         // 处理命令
-        if (cmd == "START_PVZ" && g_config.allow_auto_open) {
+        if (cmd == "HEARTBEAT") {
+            // 心跳包，不处理
+            continue;
+        } else if (cmd == "START_PVZ" && g_config.allow_auto_open) {
             StartPVZ(g_config.pvz_path);
         } else if (cmd == "BACKUP_LOCAL") {
             BackupSaveDir(g_config.save_path, g_config.local_backup_path);
@@ -247,6 +293,7 @@ void SendCommand(const std::string& cmd) {
 // 异步连接函数
 void AsyncConnectTask(const std::string& ip, int port, bool is_server, AddressFamily addr_family) {
     g_is_connecting = true;
+    SetLoadingState(LoadingState::Connecting, "正在连接到 " + ip + ":" + std::to_string(port));
     
     bool success = false;
     if (is_server) {
@@ -260,6 +307,7 @@ void AsyncConnectTask(const std::string& ip, int port, bool is_server, AddressFa
     }
     
     g_is_connecting = false;
+    SetLoadingState(LoadingState::None, "");
 }
 
 // 开始异步连接
@@ -303,4 +351,84 @@ std::string GetAddressFamilyString(AddressFamily addr_family) {
         default:
             return "Auto";
     }
+}
+
+// 心跳线程函数
+static void HeartbeatThreadFunc() {
+    while (g_heartbeat_running && g_network_state.connected) {
+        SendHeartbeat();
+        std::this_thread::sleep_for(std::chrono::seconds(10));  // 每10秒发送一次心跳
+    }
+}
+
+// 启动心跳线程
+void StartHeartbeatThread() {
+    if (g_heartbeat_running) {
+        return;  // 已经在运行
+    }
+    
+    g_heartbeat_running = true;
+    g_heartbeat_thread = std::thread(HeartbeatThreadFunc);
+    g_heartbeat_thread.detach();
+}
+
+// 发送心跳包
+void SendHeartbeat() {
+    if (!g_network_state.connected) {
+        return;
+    }
+    
+    std::lock_guard<std::mutex> lock(g_network_mutex);
+    const char* heartbeat = "HEARTBEAT";
+    send(g_network_state.sock, heartbeat, strlen(heartbeat), 0);
+}
+
+// 检查连接超时
+bool CheckConnectionTimeout(int timeout_seconds) {
+    auto now = std::chrono::steady_clock::now();
+    auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(now - g_network_state.last_heartbeat);
+    return elapsed.count() > timeout_seconds;
+}
+
+// 重连线程函数
+static void ReconnectThreadFunc() {
+    while (g_reconnect_running && g_network_state.should_reconnect) {
+        if (!g_network_state.connected && !g_is_connecting) {
+            AddMessage("尝试重新连接...", MessageType::Info);
+            
+            bool success = false;
+            if (g_reconnect_is_server) {
+                success = StartServer(g_reconnect_port, g_reconnect_addr_family);
+            } else {
+                success = ConnectToServer(g_reconnect_ip, g_reconnect_port, g_reconnect_addr_family);
+            }
+            
+            if (success) {
+                AddMessage("重连成功", MessageType::Success);
+                g_network_state.should_reconnect = false;
+                break;
+            } else {
+                AddMessage("重连失败，5秒后重试", MessageType::Warning);
+            }
+        }
+        
+        std::this_thread::sleep_for(std::chrono::seconds(5));  // 每5秒重试一次
+    }
+}
+
+// 启动重连线程
+void StartReconnectThread(const std::string& ip, int port, bool is_server, AddressFamily addr_family) {
+    if (g_reconnect_running) {
+        return;  // 已经在运行
+    }
+    
+    g_reconnect_ip = ip;
+    g_reconnect_port = port;
+    g_reconnect_is_server = is_server;
+    g_reconnect_addr_family = addr_family;
+    g_network_state.should_reconnect = true;
+    
+    g_reconnect_running = true;
+    g_reconnect_thread = std::thread(ReconnectThreadFunc);
+    g_reconnect_thread.detach();
 }

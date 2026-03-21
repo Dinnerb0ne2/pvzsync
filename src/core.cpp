@@ -85,7 +85,18 @@ bool CheckPVZRunning() {
 
 // 启动PVZ进程
 bool StartPVZ(const std::string& pvz_path) {
-    if (CheckPVZRunning()) return true;
+    if (CheckPVZRunning()) {
+        std::cout << "PVZ已在运行中" << std::endl;
+        return true;
+    }
+
+    // 检查文件是否存在
+    if (GetFileAttributesA(pvz_path.c_str()) == INVALID_FILE_ATTRIBUTES) {
+        DWORD error = GetLastError();
+        std::cerr << "PVZ可执行文件不存在: " << pvz_path << ", 错误码: " << error << std::endl;
+        AddMessage("PVZ可执行文件不存在: " + pvz_path, MessageType::Error);
+        return false;
+    }
 
     STARTUPINFOA si = {0};
     si.cb = sizeof(STARTUPINFOA);
@@ -108,8 +119,13 @@ bool StartPVZ(const std::string& pvz_path) {
         CloseHandle(pi.hProcess);
         CloseHandle(pi.hThread);
         g_pvz_state.is_running = true;
+        std::cout << "PVZ启动成功: " << pvz_path << std::endl;
+        AddMessage("PVZ启动成功", MessageType::Success);
     } else {
-        std::cerr << "启动PVZ失败，错误码: " << GetLastError() << std::endl;
+        DWORD error = GetLastError();
+        std::cerr << "启动PVZ失败: " << pvz_path << ", 错误码: " << error << std::endl;
+        std::string error_msg = "启动PVZ失败，错误码: " + std::to_string(error);
+        AddMessage(error_msg, MessageType::Error);
     }
 
     return ret;
@@ -118,12 +134,19 @@ bool StartPVZ(const std::string& pvz_path) {
 // 复制文件夹（Windows API）
 bool CopyDirectory(const std::string& src_dir, const std::string& dest_dir) {
     if (!PathIsDirectoryA(src_dir.c_str())) {
-        std::cerr << "源目录不存在: " << src_dir << std::endl;
+        DWORD error = GetLastError();
+        std::cerr << "源目录不存在: " << src_dir << ", 错误码: " << error << std::endl;
+        AddMessage("源目录不存在: " + src_dir, MessageType::Error);
         return false;
     }
 
     if (!PathIsDirectoryA(dest_dir.c_str())) {
-        _mkdir(dest_dir.c_str());
+        if (_mkdir(dest_dir.c_str()) != 0) {
+            DWORD error = GetLastError();
+            std::cerr << "创建目标目录失败: " << dest_dir << ", 错误码: " << error << std::endl;
+            AddMessage("创建目标目录失败: " + dest_dir, MessageType::Error);
+            return false;
+        }
     }
 
     SHFILEOPSTRUCTA file_op = {0};
@@ -133,7 +156,14 @@ bool CopyDirectory(const std::string& src_dir, const std::string& dest_dir) {
     file_op.fFlags = FOF_NOCONFIRMATION | FOF_NOCONFIRMMKDIR | FOF_SILENT;
 
     int ret = SHFileOperationA(&file_op);
-    return (ret == 0);
+    if (ret != 0) {
+        std::cerr << "复制文件夹失败: " << src_dir << " -> " << dest_dir << ", 错误码: " << ret << std::endl;
+        AddMessage("复制文件夹失败，错误码: " + std::to_string(ret), MessageType::Error);
+        return false;
+    }
+    
+    std::cout << "文件夹复制成功: " << src_dir << " -> " << dest_dir << std::endl;
+    return true;
 }
 
 // 获取文件夹最新文件时间
@@ -168,12 +198,19 @@ time_t GetLatestFileTimeInDir(const std::string& dir_path) {
 // 备份存档（带时间戳）
 bool BackupSaveDir(const std::string& src_dir, const std::string& base_backup_dir) {
     if (!PathIsDirectoryA(src_dir.c_str())) {
-        std::cerr << "存档目录不存在: " << src_dir << std::endl;
+        DWORD error = GetLastError();
+        std::cerr << "存档目录不存在: " << src_dir << ", 错误码: " << error << std::endl;
+        AddMessage("存档目录不存在: " + src_dir, MessageType::Error);
         return false;
     }
 
     if (!PathIsDirectoryA(base_backup_dir.c_str())) {
-        _mkdir(base_backup_dir.c_str());
+        if (_mkdir(base_backup_dir.c_str()) != 0) {
+            DWORD error = GetLastError();
+            std::cerr << "创建备份目录失败: " << base_backup_dir << ", 错误码: " << error << std::endl;
+            AddMessage("创建备份目录失败: " + base_backup_dir, MessageType::Error);
+            return false;
+        }
     }
 
     time_t now = time(NULL);
@@ -184,8 +221,10 @@ bool BackupSaveDir(const std::string& src_dir, const std::string& base_backup_di
     bool ret = CopyDirectory(src_dir, dest_dir);
     if (ret) {
         std::cout << "备份成功: " << dest_dir << std::endl;
+        AddMessage("备份成功: " + dest_dir, MessageType::Success);
     } else {
         std::cerr << "备份失败" << std::endl;
+        AddMessage("备份失败", MessageType::Error);
     }
 
     return ret;

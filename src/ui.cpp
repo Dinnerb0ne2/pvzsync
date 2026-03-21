@@ -21,6 +21,8 @@ WindowState g_window_state;
 // 消息系统
 std::vector<MessageItem> g_messages;
 const int MAX_MESSAGES = 50;  // 最多保存50条消息
+LoadingState g_loading_state = LoadingState::None;  // 全局加载状态
+std::string g_loading_message = "";  // 加载提示信息
 
 // 远程控制画面纹理
 static GLuint g_remote_texture = 0;
@@ -395,6 +397,23 @@ void RenderGUI() {
         ImGui::Text("传输状态: %s", g_remote_state.streaming ? "🔴 传输中" : "⚫ 未传输");
         ImGui::Text("配置: %s @ %s (已导入)", g_config.resolution.c_str(), g_config.framerate.c_str());
         
+        // 显示帧率和帧数统计
+        if (g_remote_state.streaming) {
+            ImGui::Text("实际帧率: %.1f FPS", g_remote_state.fps);
+            ImGui::Text("JPEG质量: %d", g_remote_state.jpeg_quality);
+            if (g_remote_state.is_server) {
+                ImGui::Text("已发送帧数: %u", g_remote_state.frames_sent);
+            } else if (g_remote_state.is_client) {
+                ImGui::Text("已接收帧数: %u", g_remote_state.frames_received);
+            }
+        }
+        
+        // JPEG质量设置
+        ImGui::Checkbox("自动调整JPEG质量", &g_remote_state.auto_quality);
+        if (!g_remote_state.auto_quality) {
+            ImGui::SliderInt("JPEG质量", &g_remote_state.jpeg_quality, 50, 100);
+        }
+        
         if (ImGui::Button(g_remote_state.streaming ? "停止传输" : "开始传输", ImVec2(100, 30))) {
             if (!g_remote_state.streaming) {
                 // 开始传输
@@ -638,43 +657,72 @@ void RenderMessageBar() {
         ImU32 color_bottom = ImGui::ColorConvertFloat4ToU32(ImVec4(0.6f, 0.8f, 1.0f, 0.85f));  // 蓝色
         draw_list->AddRectFilledMultiColor(p_min, p_max, color_top, color_top, color_bottom, color_bottom);
         
-        // 显示最近的消息（最多2条）
-        int show_count = std::min((int)g_messages.size(), 2);
-        for (int i = 0; i < show_count; i++) {
-            const MessageItem& msg = g_messages[g_messages.size() - 1 - i];
-            
-            // 根据消息类型设置颜色（使用深色文字以对比渐变背景）
-            ImVec4 color;
-            const char* prefix = "";
-            switch (msg.type) {
-                case MessageType::Info:
-                    color = ImVec4(0.8f, 0.8f, 0.8f, 1.0f);  // 浅灰色
-                    prefix = "[信息] ";
+        // 显示加载状态
+        if (g_loading_state != LoadingState::None && !g_loading_message.empty()) {
+            const char* loading_text = "";
+            switch (g_loading_state) {
+                case LoadingState::Connecting:
+                    loading_text = "🔄 连接中...";
                     break;
-                case MessageType::Success:
-                    color = ImVec4(0.4f, 0.9f, 0.4f, 1.0f);  // 亮绿色
-                    prefix = "[成功] ";
+                case LoadingState::StartingPVZ:
+                    loading_text = "🚀 启动PVZ中...";
                     break;
-                case MessageType::Warning:
-                    color = ImVec4(1.0f, 0.9f, 0.4f, 1.0f);  // 亮黄色
-                    prefix = "[警告] ";
+                case LoadingState::BackingUp:
+                    loading_text = "💾 备份中...";
                     break;
-                case MessageType::Error:
-                    color = ImVec4(1.0f, 0.6f, 0.6f, 1.0f);  // 亮红色
-                    prefix = "[错误] ";
+                case LoadingState::Streaming:
+                    loading_text = "📺 传输中...";
+                    break;
+                default:
+                    loading_text = "⏳ 加载中...";
                     break;
             }
+            ImGui::TextColored(ImVec4(0.2f, 0.2f, 0.3f, 1.0f), "%s %s", loading_text, g_loading_message.c_str());
+        } else {
+            // 显示最近的消息（最多2条）
+            int show_count = std::min((int)g_messages.size(), 2);
+            for (int i = 0; i < show_count; i++) {
+                const MessageItem& msg = g_messages[g_messages.size() - 1 - i];
+                
+                // 根据消息类型设置颜色（使用深色文字以对比渐变背景）
+                ImVec4 color;
+                const char* prefix = "";
+                switch (msg.type) {
+                    case MessageType::Info:
+                        color = ImVec4(0.8f, 0.8f, 0.8f, 1.0f);  // 浅灰色
+                        prefix = "[信息] ";
+                        break;
+                    case MessageType::Success:
+                        color = ImVec4(0.4f, 0.9f, 0.4f, 1.0f);  // 亮绿色
+                        prefix = "[成功] ";
+                        break;
+                    case MessageType::Warning:
+                        color = ImVec4(1.0f, 0.9f, 0.4f, 1.0f);  // 亮黄色
+                        prefix = "[警告] ";
+                        break;
+                    case MessageType::Error:
+                        color = ImVec4(1.0f, 0.6f, 0.6f, 1.0f);  // 亮红色
+                        prefix = "[错误] ";
+                        break;
+                }
+                
+                // 显示消息（深色文字）
+                ImGui::TextColored(ImVec4(0.2f, 0.2f, 0.3f, 1.0f), "%s%s", prefix, msg.text.c_str());
+            }
             
-            // 显示消息（深色文字）
-            ImGui::TextColored(ImVec4(0.2f, 0.2f, 0.3f, 1.0f), "%s%s", prefix, msg.text.c_str());
-        }
-        
-        if (g_messages.empty()) {
-            ImGui::TextColored(ImVec4(0.4f, 0.4f, 0.4f, 1.0f), "暂无消息");
+            if (g_messages.empty()) {
+                ImGui::TextColored(ImVec4(0.4f, 0.4f, 0.4f, 1.0f), "暂无消息");
+            }
         }
     }
     
     ImGui::PopStyleColor();
     ImGui::PopStyleVar();
     ImGui::End();
+}
+
+// 设置加载状态
+void SetLoadingState(LoadingState state, const std::string& message) {
+    g_loading_state = state;
+    g_loading_message = message;
 }

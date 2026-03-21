@@ -2,6 +2,8 @@
 #include <string>
 #include <winsock2.h>
 #include <ws2tcpip.h>
+#include <chrono>
+#include <atomic>
 
 // 地址类型枚举
 enum class AddressFamily {
@@ -15,6 +17,8 @@ struct NetworkState {
     SOCKET sock = INVALID_SOCKET;
     bool connected = false;
     int address_family = AF_INET;  // AF_INET(IPv4) 或 AF_INET6(IPv6)
+    std::atomic<bool> should_reconnect{false};  // 是否应该重连
+    std::chrono::steady_clock::time_point last_heartbeat;  // 最后心跳时间
 };
 
 // 全局网络状态
@@ -35,6 +39,12 @@ void SendCommand(const std::string& cmd);
 // 异步连接
 void StartAsyncConnect(const std::string& ip, int port, bool is_server, AddressFamily addr_family = AddressFamily::Auto);
 bool IsConnecting();
+
+// 心跳和重连
+void StartHeartbeatThread();
+void SendHeartbeat();
+bool CheckConnectionTimeout(int timeout_seconds = 30);
+void StartReconnectThread(const std::string& ip, int port, bool is_server, AddressFamily addr_family);
 
 // 工具函数
 bool IsIPv6Address(const std::string& ip);
